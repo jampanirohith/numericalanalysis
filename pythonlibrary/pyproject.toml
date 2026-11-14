@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "numericalanalysisiiser"
-version = "0.1.1"
+version = "0.1.2"
 description = "Numerical analysis methods (interpolation, differentiation, integration, root finding, linear systems, ODEs) that return pandas DataFrames"
 readme = "README.md"
 requires-python = ">=3.9"

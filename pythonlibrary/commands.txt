@@ -1,0 +1,9 @@
+$env:TWINE_USERNAME = "__token__"
+
+$env:TWINE_PASSWORD = "pypi-PASTE-YOUR-REAL-PYPI-TOKEN-HERE"
+
+python -m build
+
+python -m twine upload dist/*
+
+Remove-Item Env:TWINE_PASSWORD

@@ -1,610 +1,626 @@
 # numericalanalysisiiser
 
-Classical numerical analysis methods in plain Python, from the MAT 308 Mathematics Lab at IISER Thiruvananthapuram:
-interpolation, numerical differentiation and integration, root finding, iterative linear solvers and an ODE solver.
+Numerical analysis methods from the MAT 308 Mathematics Lab at IISER Thiruvananthapuram: interpolation,
+numerical differentiation and integration, root finding, iterative linear solvers and the Euler method.
 
-**Every method returns a pandas DataFrame.** The table has one row per iteration, step size or
-evaluation point, so you can read the result, filter it, and plot any columns you like.
+Every function returns a **pandas DataFrame**: a table with one row per iteration, step size or point, from
+which you can read the answer or plot any columns.
 
-```python
-from numericalanalysisiiser import bisection
-import matplotlib.pyplot as plt
+* PyPI: <https://pypi.org/project/numericalanalysisiiser/>
+* Source: <https://github.com/jampanirohith/numericalanalysis>
 
-f = lambda x: x**3 - x - 2
-t = bisection(f, 1, 2, tol=1e-10, p_star=1.5213797068045676)
-
-print(t["p"].iloc[-1])                    # the root (last row)
-plt.semilogy(t["n"], t["error"])          # any columns can be plotted
-```
-
-## Contents
-
-* [Installation](#installation)
-* [How the functions behave](#how-the-functions-behave)
-* [Interpolation](#interpolation) - `lagrange`, `newton_interpolation`, `divided_differences`, `hermite`, `natural_cubic_spline`
-* [Numerical differentiation](#numerical-differentiation) - `finite_difference`, `richardson`, `richardson_triangle`
-* [Numerical integration](#numerical-integration) - `trapezoid`, `simpson`, `romberg`, `gauss_legendre`
-* [Root finding](#root-finding) - `bisection`, `fixed_point`, `newton`, `secant`
-* [Linear systems](#linear-systems) - `jacobi`, `gauss_seidel`, `sor`, `tridiagonal_matrix`
-* [Ordinary differential equations](#ordinary-differential-equations) - `euler`
-* [Recipes](#recipes)
-* [Notes and limitations](#notes-and-limitations)
-* [License](#license)
-
-## Installation
+## Install
 
 ```bash
 pip install numericalanalysisiiser
 ```
 
-Package on PyPI: <https://pypi.org/project/numericalanalysisiiser/>. Source code and the course material
-it comes from: <https://github.com/jampanirohith/numericalanalysis>.
+Needs Python 3.9 or newer. numpy and pandas are installed with it. To upgrade: `pip install --upgrade numericalanalysisiiser`.
 
-Requires Python 3.9 or newer, numpy and pandas (installed automatically). matplotlib is not
-required; install it only if you want to plot the tables.
+## How to use a function
 
-To upgrade to the latest release:
+1. **Import** the function. After a plain `import numericalanalysisiiser` you would have to write
+   `numericalanalysisiiser.lagrange(...)`; importing by name is simpler:
 
-```bash
-pip install --upgrade numericalanalysisiiser
-```
+   ```python
+   from numericalanalysisiiser import lagrange
+   ```
 
-To work on the code from a clone of the repository:
+   Other forms that work: `from numericalanalysisiiser import *` (all functions), or
+   `import numericalanalysisiiser as na` and then `na.lagrange(...)`.
 
-```bash
-cd pythonlibrary
-pip install -e .
-```
+2. **Call** it with your data. The functions you give it (`f`, `g`, `df`, `exact`) are ordinary Python
+   functions, e.g. `lambda x: x**2 - 2` or `math.sin`.
 
-## How the functions behave
+3. **Print** the result. In a `.py` file (also in VS Code) nothing is shown unless you print:
 
-**The functions.** `f`, `g`, `df` and `exact` are ordinary Python functions of one number
-(`f(x)`; ODE right-hand sides take two: `f(t, y)`). Functions from `math` and from `numpy` both work.
+   ```python
+   print(lagrange([0, 1, 2, 3], [1, 2, 5, 10], 1.5))
+   ```
+   ```
+      alpha     p
+   0    1.5  3.25
+   ```
 
-**Lists in, rows out.** Wherever a quantity can vary (`alpha`, `h`, `n`, `omega`), you may pass one
-value or a list. You get one row per value.
+   In a Jupyter notebook or at the Python prompt the table is shown without `print`.
 
-**Optional exact values.** `exact=` (or `p_star=` for root finders) is the true value. When given,
-the table gets `error` columns, and `order` (observed order of convergence) or `q` (estimated order
-of an iteration) where they make sense.
+**Wide tables** are shortened by pandas with `...`. Select the columns you want,
+`print(t[["n", "p", "error"]])`, or show everything with `print(t.to_string())`.
 
-**Iterative methods.** Root finders and linear solvers return one row per iteration. **The last
-row is the final answer.**
+## Reading the results
 
-**`order` columns.** `order` in row `k` is `log(E_k / E_(k+1)) / log(h_k / h_(k+1))`, computed from a
-row and the next one, so the last row is `NaN`. It needs the step sizes to be listed in
-decreasing order.
+* **One value or a list.** Where something can vary (`alpha`, `h`, `n`) give a number or a list; you get one row per value.
+* **`exact=` / `p_star=`** is the true value, optional. With it the table gets `error` columns, and `order`
+  (observed order of convergence) or `q` (estimated order of an iteration).
+* **Iterative methods** (root finding, linear systems) give one row per iteration, and **the last row is the answer.**
+* **`order`** in a row compares that row with the next one, so the last row is always `NaN`. List the step sizes from large to small.
+* **`NaN`** means "not defined for this row"; it is not an error.
 
-**`NaN` values** mean "not defined for this row", never an error.
+---
+
+# The methods
 
 ## Interpolation
 
-All five functions return the columns `alpha, p` (and `exact, error` when `exact` is given), where
-`p` is the interpolant evaluated at `alpha`.
+Each of the five functions evaluates an interpolating curve at the points `alpha` and returns the columns
+`alpha, p` (and `exact, error` if you pass `exact=`, a function).
+
+The examples use the points `(0, 1), (1, 2), (2, 5), (3, 10)`, which lie on `y = x^2 + 1`.
 
 ### `lagrange(x, y, alpha, exact=None)`
 
-The Lagrange interpolating polynomial through the points `(x_i, y_i)`:
-`p(a) = sum_i y_i * prod_(j != i) (a - x_j) / (x_i - x_j)`.
-
-| Parameter | |
-|---|---|
-| `x`, `y` | nodes and values (lists or arrays); the `x` values must be distinct |
-| `alpha` | a number or a list of points where the polynomial is evaluated |
-| `exact` | optional function `f(x)`; adds `exact` and `error = abs(exact - p)` |
+Lagrange polynomial through the points `(x, y)`. The `x` values must be distinct.
 
 ```python
 from numericalanalysisiiser import lagrange
 
-lagrange([-2, 0, -1, 1, 2], [4, 1, -1, 1, 9], [0.7, 1.5], exact=lambda t: t**2)
+print(lagrange([0, 1, 2, 3], [1, 2, 5, 10], [0.5, 1.5], exact=lambda t: t**2 + 1))
 ```
 ```
- alpha        p  exact    error
-   0.7 0.982413   0.49 0.492413
-   1.5 2.632812   2.25 0.382812
+   alpha     p  exact  error
+0    0.5  1.25   1.25    0.0
+1    1.5  3.25   3.25    0.0
 ```
+
+The curve is `x^2 + 1`, so the interpolation is exact and the error is zero.
 
 ### `newton_interpolation(x, y, alpha, exact=None)`
 
-The same polynomial in Newton form, `c0 + c1 (a - x0) + c2 (a - x0)(a - x1) + ...`, with divided
-difference coefficients. Same parameters and columns as `lagrange`. The nodes may be in any order.
+The same polynomial in Newton's divided-difference form. Same arguments and columns as `lagrange`.
+
+```python
+from numericalanalysisiiser import newton_interpolation
+
+print(newton_interpolation([0, 1, 2, 3], [1, 2, 5, 10], [0.5, 1.5]))
+```
+```
+   alpha     p
+0    0.5  1.25
+1    1.5  3.25
+```
 
 ### `divided_differences(x, y)`
 
-The divided difference table. Columns `x, f[0], f[1], ...`; the **first row holds the Newton
-coefficients** `c0, c1, ...`.
+The divided-difference table. **The first row holds the Newton coefficients.**
 
 ```python
 from numericalanalysisiiser import divided_differences
 
-divided_differences([0, 1, 2, 3], [1, 2, 5, 10])
+print(divided_differences([0, 1, 2, 3], [1, 2, 5, 10]))
 ```
 ```
- x  f[0]  f[1]  f[2]  f[3]
- 0     1   1.0   1.0   0.0
- 1     2   3.0   1.0   NaN
- 2     5   5.0   NaN   NaN
- 3    10   NaN   NaN   NaN
+   x  f[0]  f[1]  f[2]  f[3]
+0  0     1   1.0   1.0   0.0
+1  1     2   3.0   1.0   NaN
+2  2     5   5.0   NaN   NaN
+3  3    10   NaN   NaN   NaN
 ```
+
+Here the polynomial is `1 + 1*(x - 0) + 1*(x - 0)(x - 1)`; the last coefficient `0` says the degree is 2.
 
 ### `hermite(x, y, dy, alpha, exact=None)`
 
-Hermite interpolation: the polynomial of degree `2n - 1` that matches both the values `y_i` and the
-slopes `dy_i` at the `n` nodes. Same columns as `lagrange`.
+Hermite interpolation: the polynomial matches the values `y` **and** the slopes `dy` at the nodes.
 
 ```python
-import numpy as np
 from numericalanalysisiiser import hermite
 
-f  = lambda x: 1 / (1 + 25 * x**2)
-df = lambda x: -50 * x / (1 + 25 * x**2) ** 2
-x = np.linspace(-1, 1, 10)
-t = hermite(x, f(x), df(x), np.linspace(-1, 1, 2001), exact=f)
-t["error"].max()
+# f(x) = x^3, nodes 0 and 1: values 0, 1 and slopes 0, 3
+print(hermite([0, 1], [0, 1], [0, 3], [0.25, 0.5], exact=lambda t: t**3))
 ```
+```
+   alpha         p     exact  error
+0   0.25  0.015625  0.015625    0.0
+1   0.50  0.125000  0.125000    0.0
+```
+
+A cubic is reproduced exactly from two nodes with their slopes.
 
 ### `natural_cubic_spline(x, y, alpha, exact=None)`
 
-The natural cubic spline (second derivative zero at both ends). `x` must be in increasing order.
-Outside `[x[0], x[-1]]` the first / last cubic piece is extended. Same columns as `lagrange`.
+Natural cubic spline (second derivative zero at both ends). The `x` values must be increasing.
 
 ```python
+import numpy as np
 from numericalanalysisiiser import natural_cubic_spline
 
-f = lambda t: np.exp(-t) * np.sin(2 * t)
-for h in [0.5, 0.25, 0.125]:
-    nodes = np.arange(0, 4 + h / 2, h)
-    err = natural_cubic_spline(nodes, f(nodes), np.linspace(0, 4, 2001), exact=f)["error"].max()
-    print(h, err)
+nodes = [0, 1, 2, 3]
+print(natural_cubic_spline(nodes, np.sin(nodes), [0.5, 1.5, 2.5], exact=np.sin).round(6))
+```
+```
+   alpha         p     exact     error
+0    0.5  0.477200  0.479426  0.002226
+1    1.5  0.996108  0.997495  0.001387
+2    2.5  0.589468  0.598472  0.009004
 ```
 
 ## Numerical differentiation
 
 ### `finite_difference(f, x, h, exact=None, methods=("forward", "backward", "central"))`
 
-Finite difference approximations at the point `x`.
+Approximates `f'(x)` at the point `x`. `h` is a step size or a list of them. `methods` can contain
+`"forward"`, `"backward"`, `"central"` and `"second"` (this one approximates `f''(x)`).
 
 | Method | Formula | Error |
 |---|---|---|
-| `"forward"` | `(f(x+h) - f(x)) / h` | O(h) |
-| `"backward"` | `(f(x) - f(x-h)) / h` | O(h) |
-| `"central"` | `(f(x+h) - f(x-h)) / (2h)` | O(h^2) |
-| `"second"` | `(f(x+h) - 2 f(x) + f(x-h)) / h^2`, approximates `f''(x)` | O(h^2) |
+| `forward` | `(f(x+h) - f(x)) / h` | order 1 |
+| `backward` | `(f(x) - f(x-h)) / h` | order 1 |
+| `central` | `(f(x+h) - f(x-h)) / (2h)` | order 2 |
+| `second` | `(f(x+h) - 2f(x) + f(x-h)) / h^2` | order 2 |
 
-| Parameter | |
-|---|---|
-| `h` | a step size or a list of step sizes |
-| `exact` | the true derivative at `x`; adds `<method>_error` and `<method>_order` |
-| `methods` | tuple of method names |
-
-Returns `h`, then one column per method (and its `_error`, `_order`).
+With `exact=`, each method also gets `<method>_error` and `<method>_order`.
 
 ```python
 import math
 from numericalanalysisiiser import finite_difference
 
-f = lambda x: math.exp(x) * math.cos(x)
-exact = math.exp(1) * (math.cos(1) - math.sin(1))
-finite_difference(f, 1.0, [0.1, 0.05, 0.025], exact)
+t = finite_difference(math.sin, 1.0, [0.1, 0.05, 0.025], exact=math.cos(1.0))
+print(t[["h", "forward", "forward_error", "central", "central_error", "central_order"]].round(6))
 ```
 ```
-    h   forward  forward_error  forward_order  backward  backward_error  backward_order   central  central_error  central_order
-0.100 -1.060159       0.241497       1.039001 -0.602199        0.216463        0.960073 -0.831179       0.012517       1.999763
-0.050 -0.936190       0.117528       1.019624 -0.707393        0.111268        0.980145 -0.821791       0.003130       1.999941
-0.025 -0.876632       0.057970            NaN -0.762256        0.056405             NaN -0.819444       0.000782            NaN
+       h   forward  forward_error   central  central_error  central_order
+0  0.100  0.497364       0.042939  0.539402       0.000900       1.999459
+1  0.050  0.519045       0.021257  0.540077       0.000225       1.999865
+2  0.025  0.529728       0.010574  0.540246       0.000056            NaN
 ```
+
+The central error drops by a factor 4 each time `h` is halved (order 2); the forward error only by 2 (order 1).
 
 ### `richardson(f, x, h, levels=1, method="central", exact=None, layout="by_h")`
 
-Richardson extrapolation of a finite difference formula `D(h)`, which removes the leading error terms.
-For `"central"` and `"second"` the error series is `h^2, h^4, ...` (factor `4^j`); for `"forward"` and
-`"backward"` it is `h, h^2, ...` (factor `2^j`).
+Richardson extrapolation of a difference formula (`method` as above): it combines the formula at step `h` and
+`h/2` to cancel the leading error term. Columns `R0` (the plain formula), `R1`, `R2`, ... get more accurate.
 
-`layout="by_h"` (default): `h` is a list of step sizes, one row per `h`. Each row uses `D` at
-`h, h/2, ..., h/2^levels`:
-
-```
-R0 = D(h)
-R1 = (4 D(h/2) - D(h)) / 3                 (central)
-R2 = (16 R1(h/2) - R1(h)) / 15
-```
-
-Returns `h, R0, R1, ..., R<levels>`.
+**`layout="by_h"`** (default): `h` is a list; one row per `h`, with `R1 = (4 D(h/2) - D(h)) / 3` for the central formula.
 
 ```python
+import math
 from numericalanalysisiiser import richardson
 
-richardson(f, 1.0, [0.4, 0.2, 0.1], levels=1, exact=exact)
+print(richardson(math.sin, 1.0, [0.2, 0.1, 0.05], exact=math.cos(1.0)).round(8))
 ```
 ```
-  h        R0        R1  R0_error  R0_order     R1_error  R1_order
-0.4 -1.018261 -0.818844  0.199600  1.996053 1.822700e-04  4.045968
-0.2 -0.868698 -0.818672  0.050037  1.999046 1.103000e-05  4.011736
-0.1 -0.831179 -0.818662  0.012517       NaN 6.800000e-07       NaN
+      h        R0        R1  R0_error  R0_order      R1_error  R1_order
+0  0.20  0.536707  0.540301  0.003595  1.997836  1.800000e-06  3.998712
+1  0.10  0.539402  0.540302  0.000900  1.999459  1.100000e-07  3.999678
+2  0.05  0.540077  0.540302  0.000225       NaN  1.000000e-08       NaN
 ```
 
-`layout="triangle"`: `h` is a **single** starting step `h0`; row `k` uses `h0 / 2^k` and the table is
-the classical triangle `R[k][j] = R[k][j-1] + (R[k][j-1] - R[k-1][j-1]) / (4^j - 1)`.
-`levels + 1` rows. Returns `k, h, R0, R1, ...`; the entries above the diagonal are `NaN`. With
-`exact`, `R<j>_order` is the observed order of column `j` from row to row.
+`R0` has order 2, `R1` order 4. Use `levels=2` to add `R2` (order 6).
+
+**`layout="triangle"`**: `h` is **one** starting step; row `k` uses `h / 2^k` and the table is the classical Richardson triangle.
 
 ```python
-richardson(f, 1.0, 1.0, levels=3, layout="triangle")
+print(richardson(math.sin, 1.0, 0.4, levels=3, layout="triangle").round(8))
 ```
 ```
- k     h        R0        R1        R2        R3
- 0 1.000 -2.037466       NaN       NaN       NaN
- 1 0.500 -1.129867 -0.827334       NaN       NaN
- 2 0.250 -0.896804 -0.819117 -0.818569       NaN
- 3 0.125 -0.838217 -0.818688 -0.818660 -0.818661
+   k     h        R0        R1        R2        R3
+0  0  0.40  0.526009       NaN       NaN       NaN
+1  1  0.20  0.536707  0.540274       NaN       NaN
+2  2  0.10  0.539402  0.540301  0.540302       NaN
+3  3  0.05  0.540077  0.540302  0.540302  0.540302
 ```
 
 ### `richardson_triangle(first_column, p=2)`
 
-The triangle on its own, for values you computed yourself. `first_column[k]` must be computed with
-step `h / 2^k`. Returns a list of rows (`R[k][j]`). Use `p=2` for central differences and the
-trapezoidal rule, `p=1` for forward / backward differences.
+The triangle for values you computed yourself. `first_column[k]` must have been computed with step `h / 2^k`.
+Returns a list of rows. Use `p=2` for central differences and the trapezoidal rule, `p=1` for forward / backward.
+
+```python
+from numericalanalysisiiser import richardson_triangle
+
+print(richardson_triangle([1.0, 0.75, 0.6875]))
+```
+```
+[[1.0], [0.75, 0.6666666666666666], [0.6875, 0.6666666666666666, 0.6666666666666666]]
+```
 
 ## Numerical integration
 
+The examples integrate `e^x` over `[0, 1]`, whose exact value is `e - 1 = 1.71828...`.
+
 ### `trapezoid(f, a, b, n=1, exact=None)` and `simpson(f, a, b, n=2, exact=None)`
 
-Composite trapezoidal rule and composite Simpson 1/3 rule for the integral of `f` over `[a, b]`.
-
-| Parameter | |
-|---|---|
-| `n` | number of sub-intervals, or a list of them. `n=1` (trapezoid) and `n=2` (Simpson) are the basic single-application rules. For Simpson `n` must be even, otherwise `ValueError` |
-| `exact` | the true integral; adds `error` and `order` |
-
-Returns `n, h, value` (and `error, order`), where `h = (b - a) / n`.
+Composite trapezoidal rule and Simpson's 1/3 rule with `n` sub-intervals (`n` is a number or a list; for Simpson it
+must be even). `n=1` (trapezoid) and `n=2` (Simpson) are the basic one-application rules. Columns: `n, h, value`
+(and `error, order` with `exact=`).
 
 ```python
 import math
 from numericalanalysisiiser import trapezoid, simpson
 
-g = lambda x: math.exp(x)
-trapezoid(g, 0, 1, [2, 4, 8], exact=math.e - 1)
+print(trapezoid(math.exp, 0, 1, [2, 4, 8], exact=math.e - 1).round(6))
+print(simpson(math.exp, 0, 1, [2, 4, 8], exact=math.e - 1).round(8))
 ```
 ```
- n     h    value    error    order
- 2 0.500 1.753931 0.035649 1.995513
- 4 0.250 1.727222 0.008940 1.998874
- 8 0.125 1.720519 0.002237      NaN
+   n      h     value     error     order
+0  2  0.500  1.753931  0.035649  1.995513
+1  4  0.250  1.727222  0.008940  1.998874
+2  8  0.125  1.720519  0.002237       NaN
+   n      h     value     error     order
+0  2  0.500  1.718861  0.000579  3.968247
+1  4  0.250  1.718319  0.000037  3.991978
+2  8  0.125  1.718284  0.000002       NaN
 ```
+
+Trapezoid has order 2, Simpson order 4. `composite_trapezoid(f, a, b, n)` and `composite_simpson(f, a, b, n)` return
+just the number:
+
 ```python
-simpson(g, 0, 1, [2, 4, 8], exact=math.e - 1)
-```
-```
- n     h    value    error    order
- 2 0.500 1.718861 0.000579 3.968247
- 4 0.250 1.718319 0.000037 3.991978
- 8 0.125 1.718284 0.000002      NaN
-```
+from numericalanalysisiiser import composite_simpson
 
-The observed orders are about 2 for the trapezoidal rule and about 4 for Simpson's rule.
-
-`composite_trapezoid(f, a, b, n)` and `composite_simpson(f, a, b, n)` return the single number.
+print(composite_simpson(math.exp, 0, 1, 4))      # 1.718318841921747
+```
 
 ### `romberg(f, a, b, levels=6, tol=None, exact=None)`
 
-Romberg integration. Column `R0` is the trapezoidal rule with `n = 1, 2, 4, 8, ...` sub-intervals; the other
-columns are Richardson extrapolations of it (`R[k][j] = R[k][j-1] + (R[k][j-1] - R[k-1][j-1]) / (4^j - 1)`).
-
-| Parameter | |
-|---|---|
-| `levels` | number of rows (row `k` uses `n = 2^k`) |
-| `tol` | if given, rows are added until `abs(R[k][k] - R[k-1][k-1]) < tol` (at most 25 rows); `levels` is then ignored |
-| `exact` | the true integral; adds `error`, the error of the diagonal entry `R[k][k]` of each row |
-
-Returns `n, R0, R1, ...` (and `error`). **The answer is the last entry of the last row.**
+Romberg integration. Column `R0` is the trapezoidal rule with `n = 1, 2, 4, 8, ...`; the other columns are Richardson
+extrapolations. **The answer is the last entry of the last row.** With `tol=` rows are added until two successive
+diagonal entries differ by less than `tol`. With `exact=` an `error` column (of the diagonal entries) is added.
 
 ```python
 from numericalanalysisiiser import romberg
 
-romberg(g, 0, 1, levels=4, exact=math.e - 1)
+print(romberg(math.exp, 0, 1, levels=4, exact=math.e - 1))
 ```
 ```
- n       R0       R1       R2       R3        error
- 1 1.859141      NaN      NaN      NaN 1.408591e-01
- 2 1.753931 1.718861      NaN      NaN 5.793234e-04
- 4 1.727222 1.718319 1.718283      NaN 8.595000e-07
- 8 1.720519 1.718284 1.718282 1.718282 3.000000e-10
+   n        R0        R1        R2        R3         error
+0  1  1.859141       NaN       NaN       NaN  1.408591e-01
+1  2  1.753931  1.718861       NaN       NaN  5.793234e-04
+2  4  1.727222  1.718319  1.718283       NaN  8.594657e-07
+3  8  1.720519  1.718284  1.718282  1.718282  3.354852e-10
 ```
 
 ### `gauss_legendre(f, a, b, n=2, exact=None)`
 
-Gauss-Legendre quadrature with `n` points (nodes and weights from numpy, mapped from `[-1, 1]` to
-`[a, b]`). An `n`-point rule is exact for polynomials up to degree `2n - 1`.
-
-`n` may be a list. Returns `n, value` (and `error`).
+Gauss-Legendre quadrature with `n` points (`n` a number or a list). An `n`-point rule is exact for polynomials up to
+degree `2n - 1`. Columns: `n, value` (and `error`).
 
 ```python
 from numericalanalysisiiser import gauss_legendre
 
-gauss_legendre(g, 0, 1, [1, 2, 3], exact=math.e - 1)
+print(gauss_legendre(math.exp, 0, 1, [1, 2, 3], exact=math.e - 1))
 ```
 ```
- n    value        error
- 1 1.648721 6.956056e-02
- 2 1.717896 3.854505e-04
- 3 1.718281 8.240870e-07
+   n     value         error
+0  1  1.648721  6.956056e-02
+1  2  1.717896  3.854505e-04
+2  3  1.718281  8.240865e-07
 ```
 
 ## Root finding
 
-All four methods share these conventions:
+The examples all solve `x^2 - 2 = 0`, i.e. they find `sqrt(2) = 1.41421356...`.
 
-* One row per iteration; the last row is the final iterate, so **the root is `t["p"].iloc[-1]`**.
-* `p_star` is the exact root. Only when you pass it do the tables get `error` (and `q`).
-* `f_evals` / `df_evals` are the cumulative numbers of evaluations of `f` / `f'` the method made.
-* `q = log(e_(n+1) / e_n) / log(e_n / e_(n-1))` is the estimated order of convergence (about 2 for Newton, 1.618 for secant). It is only meaningful once the errors are small, and is `NaN` where the error is at round-off level.
-* Number of iterations: `len(t)` for `bisection`; `len(t) - 1` for `fixed_point`, `newton` and `secant` (their last row only shows the final iterate).
+For every method: **the last row is the final iterate, so the root is `t["p"].iloc[-1]`.** `p_star` is the exact
+root; give it to get the `error` column (and `q`, the estimated order of convergence). `f_evals` / `df_evals` count the
+evaluations of `f` / `f'`. The number of iterations is `len(t)` for `bisection` and `len(t) - 1` for the others.
 
 ### `bisection(f, a, b, tol=1e-10, max_iter=1000, p_star=None)`
 
-Bisection on `[a, b]`. `f(a)` and `f(b)` must have opposite signs, otherwise `ValueError`. Stops when
-`(b - a) / 2 < tol`, which guarantees an error below `tol`.
-
-Columns: `n, a, b, p, f(p), b-a, bound, f_evals` (+ `error`). `bound = (b0 - a0) / 2^(n+1)` is the
-theoretical error bound after iteration `n`. The number of iterations needed for the error to be below `tol` is
-`math.ceil(math.log2((b - a) / tol))`.
+Needs `f(a)` and `f(b)` of opposite sign (otherwise `ValueError`). Stops when `(b - a) / 2 < tol`.
+Columns: `n, a, b, p, f(p), b-a, bound, f_evals` (+ `error`). `bound = (b0 - a0) / 2^(n+1)` is the guaranteed error bound.
 
 ```python
+import math
 from numericalanalysisiiser import bisection
 
-f = lambda x: x**3 - x - 2
-t = bisection(f, 1, 2, tol=1e-3, p_star=1.5213797068045676)
-t.head(4)
+f = lambda x: x**2 - 2
+t = bisection(f, 1, 2, tol=1e-3, p_star=math.sqrt(2))
+print(t[["n", "p", "f(p)", "bound", "error"]].round(6))
 ```
 ```
- n   a     b      p      f(p)   b-a  bound  f_evals   error
- 0 1.0 2.000 1.5000 -0.125000 1.000 0.5000        3 0.02138
- 1 1.5 2.000 1.7500  1.609375 0.500 0.2500        4 0.22862
- 2 1.5 1.750 1.6250  0.666016 0.250 0.1250        5 0.10362
- 3 1.5 1.625 1.5625  0.252197 0.125 0.0625        6 0.04112
+   n         p      f(p)     bound     error
+0  0  1.500000  0.250000  0.500000  0.085786
+1  1  1.250000 -0.437500  0.250000  0.164214
+2  2  1.375000 -0.109375  0.125000  0.039214
+3  3  1.437500  0.066406  0.062500  0.023286
+4  4  1.406250 -0.022461  0.031250  0.007964
+5  5  1.421875  0.021729  0.015625  0.007661
+6  6  1.414062 -0.000427  0.007812  0.000151
+7  7  1.417969  0.010635  0.003906  0.003755
+8  8  1.416016  0.005100  0.001953  0.001802
+9  9  1.415039  0.002336  0.000977  0.000826
 ```
+
+The error always stays below `bound`. With the default `tol=1e-10` it takes 34 iterations
+(`math.ceil(math.log2((b - a) / tol))`).
 
 ### `fixed_point(g, p0, tol=1e-10, max_iter=1000, f=None, p_star=None)`
 
-Fixed point iteration `p_(n+1) = g(p_n)`; stops when `abs(p_(n+1) - p_n) < tol`.
-`g` converges near a fixed point `p*` when `abs(g'(p*)) < 1`.
-
-| Parameter | |
-|---|---|
-| `f` | optional original function; adds the residual column `f(p)` |
-| `p_star` | the exact **fixed point** of `g` (not necessarily a root of `f`); adds `error` |
-
-Columns: `n, p, g(p), step, [f(p)], f_evals` (+ `error`). If `g` raises an error, returns a complex
-number, or the values exceed `1e12`, the iteration stops there. If it never converges you get
-`max_iter + 1` rows.
+Iterates `p_(n+1) = g(p_n)` until `abs(p_(n+1) - p_n) < tol`. It converges to a fixed point `p` of `g` when
+`abs(g'(p)) < 1`. Give `f` to also get the residual column `f(p)`; `p_star` is the exact *fixed point* of `g`.
+Columns: `n, p, g(p), step, [f(p)], f_evals` (+ `error`). If `g` fails (error, complex number, values above `1e12`) the
+table simply stops there.
 
 ```python
 from numericalanalysisiiser import fixed_point
 
-F = lambda x: x**3 - 2 * x - 5
-t = fixed_point(lambda x: (2 * x + 5) ** (1 / 3), 2.5, tol=1e-6, f=F, p_star=2.0945514815423265)
+# x = (x + 2/x) / 2 has the fixed point sqrt(2)
+t = fixed_point(lambda x: (x + 2 / x) / 2, 1.0, tol=1e-10, f=f, p_star=math.sqrt(2))
+print(t)
 ```
 ```
- n        p     g(p)         step     f(p)  f_evals        error
- 0 2.500000 2.154435 3.455653e-01 5.625000        1 4.054485e-01
- 1 2.154435 2.103612 5.082266e-02 0.691131        2 5.988321e-02
- ...
- 7 2.094552 2.094552 6.200000e-07 0.000008        8 7.300000e-07
- 8 2.094552      NaN          NaN 0.000001        8 1.100000e-07
+   n         p      g(p)          step          f(p)  f_evals         error
+0  0  1.000000  1.500000  5.000000e-01 -1.000000e+00        1  4.142136e-01
+1  1  1.500000  1.416667  8.333333e-02  2.500000e-01        2  8.578644e-02
+2  2  1.416667  1.414216  2.450980e-03  6.944444e-03        3  2.453104e-03
+3  3  1.414216  1.414214  2.123900e-06  6.007305e-06        4  2.123901e-06
+4  4  1.414214  1.414214  1.594946e-12  4.510614e-12        5  1.594724e-12
+5  5  1.414214       NaN           NaN -4.440892e-16        5  2.220446e-16
 ```
 
 ### `newton(f, df, p0, tol=1e-12, max_iter=100, p_star=None)`
 
-Newton's method `p_(n+1) = p_n - f(p_n) / f'(p_n)`; stops when `abs(p_(n+1) - p_n) < tol`.
-`df` is the derivative function and must not be zero at an iterate.
-
-Columns: `n, p, f(p), f'(p), step, f_evals, df_evals` (+ `error, q`).
+Newton's method, `p_(n+1) = p_n - f(p_n) / f'(p_n)`; `df` is the derivative function. Stops when
+`abs(p_(n+1) - p_n) < tol`. Columns: `n, p, f(p), f'(p), step, f_evals, df_evals` (+ `error, q`).
+`q` estimates the order of convergence (about 2 for Newton).
 
 ```python
 from numericalanalysisiiser import newton
 
-t = newton(lambda x: math.exp(-x) - x, lambda x: -math.exp(-x) - 1, 0.5, p_star=0.5671432904097838)
+t = newton(f, lambda x: 2 * x, 1.0, p_star=math.sqrt(2))
+print(t[["n", "p", "f(p)", "step", "error", "q"]])
+print("root:", t["p"].iloc[-1], " iterations:", len(t) - 1)
 ```
 ```
- n        p          f(p)     f'(p)         step  f_evals  df_evals        error        q
- 0 0.500000  1.065307e-01 -1.606531 6.631100e-02        1         1 6.714329e-02      NaN
- 1 0.566311  1.304510e-03 -1.567616 8.321600e-04        2         2 8.322900e-04 2.004512
- 2 0.567143  2.000000e-07 -1.567143 1.300000e-07        3         3 1.300000e-07 2.002809
- 3 0.567143  0.000000e+00 -1.567143 0.000000e+00        4         4 0.000000e+00      NaN
- 4 0.567143 -0.000000e+00       NaN          NaN        4         4 0.000000e+00      NaN
+   n         p          f(p)          step         error         q
+0  0  1.000000 -1.000000e+00  5.000000e-01  4.142136e-01       NaN
+1  1  1.500000  2.500000e-01  8.333333e-02  8.578644e-02  2.257517
+2  2  1.416667  6.944444e-03  2.450980e-03  2.453104e-03  1.983919
+3  3  1.414216  6.007305e-06  2.123900e-06  2.123901e-06  1.999767
+4  4  1.414214  4.510614e-12  1.594724e-12  1.594724e-12       NaN
+5  5  1.414214  4.440892e-16  2.220446e-16  0.000000e+00       NaN
+6  6  1.414214 -4.440892e-16           NaN  2.220446e-16       NaN
+root: 1.414213562373095  iterations: 6
 ```
+
+`q` is `NaN` once the error is at round-off level (about 1e-15), where it says nothing.
 
 ### `secant(f, p0, p1, tol=1e-12, max_iter=100, p_star=None)`
 
-Secant method (no derivative): `p_(n+1) = p_n - f(p_n) (p_n - p_(n-1)) / (f(p_n) - f(p_(n-1)))`.
-Stops when `abs(p_(n+1) - p_n) < tol`, or early if `f(p_n) == f(p_(n-1))`.
-
-Columns: `n, p_prev, p, f(p), p_next, step, f_evals` (+ `error, q`). Here `error` is `abs(p - p_star)`.
+Secant method: like Newton but without the derivative, using the two latest points. Stops when
+`abs(p_(n+1) - p_n) < tol`. Columns: `n, p_prev, p, f(p), p_next, step, f_evals` (+ `error, q`).
+`q` is about 1.618 for the secant method (only meaningful once the errors are small).
 
 ```python
 from numericalanalysisiiser import secant
 
-g = lambda x: x**3 - 2 * x - 5
-secant(g, 2, 3, tol=1e-10, p_star=2.0945514815423265)
+t = secant(f, 1, 2, tol=1e-10, p_star=math.sqrt(2))
+print(t[["n", "p", "p_next", "error", "q"]])
 ```
 ```
- n   p_prev        p      f(p)   p_next     step  f_evals    error         q
- 1 2.000000 3.000000 16.000000 2.058824 0.941176        3 0.905449 -1.430760
- 2 3.000000 2.058824 -0.390800 2.081264 0.022440        4 0.035728  0.305982
- 3 2.058824 2.081264 -0.147204 2.094824 0.013560        5 0.013288  3.929247
- 4 2.081264 2.094824  0.003044 2.094549 0.000275        6 0.000273  1.258286
- 5 2.094824 2.094549 -0.000023 2.094551 0.000002        7 0.000002  1.795831
- ...
+   n         p    p_next         error         q
+0  1  2.000000  1.333333  5.857864e-01 -5.713032
+1  2  1.333333  1.400000  8.088023e-02  0.878174
+2  3  1.400000  1.414634  1.421356e-02  2.024593
+3  4  1.414634  1.414211  4.205840e-04  1.502252
+4  5  1.414211  1.414214  2.123898e-06  1.666619
+5  6  1.414214  1.414214  3.157747e-10       NaN
+6  7  1.414214  1.414214  2.220446e-16       NaN
+7  8  1.414214       NaN  0.000000e+00       NaN
+```
+
+### Comparing the methods
+
+The last row of each table gives the final result, so a comparison is one small table:
+
+```python
+import pandas as pd
+
+runs = {"bisection": bisection(f, 1, 2, tol=1e-10, p_star=math.sqrt(2)),
+        "newton": newton(f, lambda x: 2 * x, 1.0, tol=1e-10, p_star=math.sqrt(2)),
+        "secant": secant(f, 1, 2, tol=1e-10, p_star=math.sqrt(2))}
+
+last = pd.DataFrame([t.iloc[-1] for t in runs.values()], index=runs.keys())
+print(last[["n", "p", "f_evals", "error"]])
 ```
 
 ## Linear systems
 
-Solve `A x = b` with stationary iterations. `A` is a square matrix (nested lists or a numpy array) and
-`b` a vector. `A` needs a non-zero diagonal; the methods are guaranteed to converge for example when
-`A` is strictly diagonally dominant. The solvers loop in pure Python, which is fine for small and
-medium systems.
+`jacobi`, `gauss_seidel` and `sor` solve `A x = b` by iteration. `A` is a square matrix (a list of lists or a numpy
+array) with a non-zero diagonal; the methods converge for example if `A` is strictly diagonally dominant.
+They stop when `max|x_k - x_(k-1)| < tol` or after `max_iter` iterations.
 
-All three return one row per iteration and stop when `max|x_k - x_(k-1)| < tol` or after `max_iter` iterations.
-Columns:
+Columns of the table (one row per iteration; row `k = 0` is the starting vector):
 
-| Column | |
+| Column | Meaning |
 |---|---|
-| `k` | iteration number; row `0` is the starting vector |
-| `omega` | the relaxation parameter (SOR only) |
-| `step` | `max|x_k - x_(k-1)|` (`NaN` in row 0) |
-| `residual` | `max|b - A x_k|` |
-| `q` | `residual_k / residual_(k-1)`; its average over the last rows estimates the asymptotic convergence factor |
-| `x1, x2, ...` | the iterate `x_k`; **the solution is the last row** |
+| `k` | iteration number |
+| `omega` | relaxation parameter (SOR only) |
+| `step` | `max abs(x_k - x_(k-1))` |
+| `residual` | `max abs(b - A x_k)` |
+| `q` | `residual_k / residual_(k-1)`; its average over the last rows estimates the convergence factor |
+| `x1, x2, ...` | the iterate; **the solution is the last row of these columns** |
+
+The examples solve `4x + y = 1`, `x + 3y = 2`, whose solution is `x = 1/11 = 0.0909...`, `y = 7/11 = 0.6363...`.
 
 ### `jacobi(A, b, x0=None, tol=1e-6, max_iter=100)`
 
-`x_i^(k+1) = (b_i - sum_(j != i) a_ij x_j^(k)) / a_ii`. `x0` is the starting vector (zeros by default).
+Jacobi iteration; `x0` is the starting vector (zeros by default).
 
 ```python
 from numericalanalysisiiser import jacobi
 
-A = [[10, -1, 2, 1], [-1, 11, -1, 3], [2, -1, 10, -1], [1, 3, -1, 8]]
-b = [6, 25, -11, 15]
-t = jacobi(A, b, tol=1e-4)
-t.head(4)
-```
-```
- k     step  residual        q       x1       x2        x3       x4
- 0      NaN 25.000000      NaN 0.000000 0.000000  0.000000 0.000000
- 1 2.272727  8.518182 0.340727 0.600000 2.272727 -1.100000 1.875000
- 2 1.064773  3.748864 0.440101 0.859773 1.715909 -0.805227 0.810227
- 3 0.340806  1.228372 0.327665 0.851614 2.056715 -1.019341 1.023409
-```
-
-The solution vector and the number of iterations:
-
-```python
+t = jacobi([[4, 1], [1, 3]], [1, 2], tol=1e-4)
+print(t)
 solution = t.filter(regex=r"^x\d+$").iloc[-1].to_numpy()
-iterations = t["k"].iloc[-1]
+print("solution:", solution, " iterations:", t["k"].iloc[-1])
+```
+```
+   k      step  residual         q        x1        x2
+0  0       NaN  2.000000       NaN  0.000000  0.000000
+1  1  0.666667  0.666667  0.333333  0.250000  0.666667
+2  2  0.166667  0.166667  0.250000  0.083333  0.583333
+3  3  0.055556  0.055556  0.333333  0.104167  0.638889
+4  4  0.013889  0.013889  0.250000  0.090278  0.631944
+5  5  0.004630  0.004630  0.333333  0.092014  0.636574
+6  6  0.001157  0.001157  0.250000  0.090856  0.635995
+7  7  0.000386  0.000386  0.333333  0.091001  0.636381
+8  8  0.000096  0.000096  0.250000  0.090905  0.636333
+solution: [0.09090471 0.63633295]  iterations: 8
 ```
 
 ### `gauss_seidel(A, b, x0=None, tol=1e-6, max_iter=100)`
 
-Like Jacobi, but each component uses the already updated components: `x_i^(k+1) = (b_i - sum_(j<i) a_ij x_j^(k+1) - sum_(j>i) a_ij x_j^(k)) / a_ii`. Same columns as `jacobi`.
+Like Jacobi, but each component immediately uses the newest values; it usually needs fewer iterations.
+
+```python
+from numericalanalysisiiser import gauss_seidel
+
+print(gauss_seidel([[4, 1], [1, 3]], [1, 2], tol=1e-4))
+```
+```
+   k      step  residual         q        x1        x2
+0  0       NaN  2.000000       NaN  0.000000  0.000000
+1  1  0.583333  0.583333  0.291667  0.250000  0.583333
+2  2  0.145833  0.048611  0.083333  0.104167  0.631944
+3  3  0.012153  0.004051  0.083333  0.092014  0.635995
+4  4  0.001013  0.000338  0.083333  0.091001  0.636333
+5  5  0.000084  0.000028  0.083333  0.090917  0.636361
+```
 
 ### `sor(A, b, omega, x0=None, tol=1e-6, max_iter=1000)`
 
-Successive over-relaxation: `x_i^(k+1) = (1 - omega) x_i^(k) + omega * (Gauss-Seidel value)`.
-`omega = 1` is Gauss-Seidel; `0 < omega < 2` is required for convergence.
-`omega` is one number per call; to compare several values, stack the tables:
+Successive over-relaxation with parameter `omega` (`omega = 1` is Gauss-Seidel; convergence needs `0 < omega < 2`).
+To compare several values of `omega`, stack the tables:
 
 ```python
 import pandas as pd
 from numericalanalysisiiser import sor
 
-A = [[4, 1, -1, 1], [1, 4, -1, -1], [-1, -1, 5, 1], [1, -1, 1, 3]]
-b = [-2, -1, 0, 1]
-t = pd.concat([sor(A, b, w, tol=1e-3) for w in [0.9, 1.0, 1.1, 1.5]])
-t.groupby("omega").last()[["k", "step", "residual"]]
+A, b = [[4, 1], [1, 3]], [1, 2]
+many = pd.concat([sor(A, b, w, tol=1e-6) for w in [0.8, 1.0, 1.1, 1.2]])
+print(many.groupby("omega").last()[["k", "step", "residual"]])
 ```
 ```
-        k      step  residual
-omega
-0.9     9  0.000971  0.002034
-1.0     8  0.000451  0.000641
-1.1     6  0.000105  0.000157
-1.5    11  0.000825  0.001213
+        k          step      residual
+omega                               
+0.8    13  7.056235e-07  1.176045e-06
+1.0     7  5.860715e-07  1.953572e-07
+1.1     7  6.183063e-07  7.409315e-07
+1.2    10  7.094322e-07  5.176637e-07
 ```
+
+`k` is the number of iterations each `omega` needed.
 
 ### `tridiagonal_matrix(n, diag=4.0, off=-1.0)`
 
-The `n x n` numpy matrix with `diag` on the main diagonal and `off` on the first sub- and
-super-diagonal.
+The `n x n` numpy matrix with `diag` on the main diagonal and `off` on the two neighbouring diagonals.
 
 ```python
 from numericalanalysisiiser import tridiagonal_matrix
 
-tridiagonal_matrix(4)
+print(tridiagonal_matrix(3))
 ```
 ```
-[[ 4. -1.  0.  0.]
- [-1.  4. -1.  0.]
- [ 0. -1.  4. -1.]
- [ 0.  0. -1.  4.]]
+[[ 4. -1.  0.]
+ [-1.  4. -1.]
+ [ 0. -1.  4.]]
 ```
 
-## Ordinary differential equations
+## Differential equations
 
 ### `euler(f, t0, T, y0, h, exact=None)`
 
-The explicit Euler method `y_(i+1) = y_i + h f(t_i, y_i)` for the scalar problem `y' = f(t, y)`,
-`y(t0) = y0` on `[t0, T]`.
+Explicit Euler method for the single equation `y' = f(t, y)`, `y(t0) = y0`, on `[t0, T]`. Note that `f` takes two
+arguments. `h` is a step size or a list of them; `T - t0` must be a multiple of every `h`. With `exact=` (the exact
+solution `y(t)`) you also get `exact` and `error`.
 
-| Parameter | |
-|---|---|
-| `f` | `f(t, y)`, takes two numbers |
-| `h` | step size or a list of step sizes; `T - t0` must be a multiple of every `h`, otherwise `ValueError` |
-| `exact` | the exact solution `y(t)`; adds `exact` and `error` |
-
-Returns one table with the runs for all step sizes stacked: `h, t, y, stable` (+ `exact, error`).
-`stable` is `False` for a run whose solution blew up (`abs(y) > 1e10`); `y` is then `NaN` from that step on.
+Columns: `h, t, y, stable` (+ `exact, error`). All step sizes are stacked in one table. `stable` is `False`,
+and `y` becomes `NaN`, from the moment the solution exceeds `1e10` in absolute value.
 
 ```python
 import math
 from numericalanalysisiiser import euler
 
-f = lambda t, y: -1000 * (y - math.cos(t)) - math.sin(t)       # stiff problem, exact solution cos(t)
-t = euler(f, 0, 1, 1.0, [0.01, 0.002, 0.001], exact=math.cos)
+# y' = -2y, y(0) = 1, exact solution exp(-2t)
+t = euler(lambda t, y: -2 * y, 0, 1, 1.0, [0.5, 0.25], exact=lambda t: math.exp(-2 * t))
+print(t[t["h"] == 0.25])
+```
+```
+      h     t       y  stable     exact     error
+3  0.25  0.00  1.0000    True  1.000000  0.000000
+4  0.25  0.25  0.5000    True  0.606531  0.106531
+5  0.25  0.50  0.2500    True  0.367879  0.117879
+6  0.25  0.75  0.1250    True  0.223130  0.098130
+7  0.25  1.00  0.0625    True  0.135335  0.072835
+```
 
-t.groupby("h", sort=False).agg(N=("t", "count"), max_error=("error", "max"), stable=("stable", "all"))
+One line per step size, with the largest error and the stability:
+
+```python
+print(t.groupby("h", sort=False).agg(rows=("t", "count"), max_error=("error", "max"), stable=("stable", "all")))
 ```
 ```
-          N     max_error  stable
-h
+      rows  max_error  stable
+h                            
+0.50     3   0.367879    True
+0.25     5   0.117879    True
+```
+
+(`rows` is the number of steps plus one.) The error roughly halves when `h` is halved: Euler is a first-order method.
+
+For a stiff problem the explicit method becomes unstable when `h` is too large:
+
+```python
+fs = lambda t, y: -1000 * (y - math.cos(t)) - math.sin(t)      # exact solution cos(t)
+s = euler(fs, 0, 1, 1.0, [0.01, 0.002], exact=math.cos)
+print(s.groupby("h", sort=False).agg(rows=("t", "count"), max_error=("error", "max"), stable=("stable", "all")))
+```
+```
+       rows     max_error  stable
+h                                
 0.010   101  9.265092e+09   False
 0.002   501  1.999999e-06    True
-0.001  1001  5.000000e-07    True
 ```
 
-(`N` here counts the rows, i.e. the number of steps plus one.) Plot the runs with
-`for h, part in t.groupby("h"): plt.plot(part["t"], part["y"], label=h)`.
+---
 
-## Recipes
+# Plotting
 
-**Compare root finders (final row of each table):**
+The library does not plot. Take columns from the table; for example the error of the bisection example:
 
 ```python
-import pandas as pd
-runs = {"Bisection": bisection(f, 2, 3, p_star=root),
-        "Fixed point": fixed_point(g, 2.5, p_star=root),
-        "Newton": newton(f, df, 2.5, p_star=root),
-        "Secant": secant(f, 2, 3, p_star=root)}
-last = pd.DataFrame([t.iloc[-1] for t in runs.values()], index=runs.keys())
-last[["n", "p", "f_evals", "df_evals", "error"]]
+import matplotlib.pyplot as plt
+
+t = bisection(f, 1, 2, tol=1e-10, p_star=math.sqrt(2))
+plt.semilogy(t["n"], t["error"])
+plt.xlabel("iteration n")
+plt.ylabel("error")
+plt.show()
 ```
 
-**Error against the number of points or the mesh size.** Evaluate on a fine grid with `exact=` and take
-the maximum error:
+(`pip install matplotlib` if you do not have it.) For errors against the step size use `plt.loglog(t["h"], t["central_error"])`.
 
-```python
-errors = [natural_cubic_spline(nodes, f(nodes), fine_grid, exact=f)["error"].max() for nodes in node_sets]
-```
+# Notes
 
-**Log-log convergence plot of a differencing table:**
+* Interpolating with many equally spaced nodes (`lagrange`, `newton_interpolation`, `hermite`) is numerically unstable (Runge phenomenon).
+* `euler` handles a single scalar equation.
+* The linear solvers use plain Python loops, so they are meant for small and medium systems.
+* `newton` needs `f'(p)` different from zero at every iterate; `secant` stops early if two successive function values are equal.
+* To get the exact value for `exact=` / `p_star=` you can use `scipy.optimize.brentq` (roots) or `scipy.integrate.quad` (integrals).
 
-```python
-t = finite_difference(f, 1.0, [2.0**-k for k in range(1, 11)], exact)
-plt.loglog(t["h"], t["forward_error"], label="forward")
-plt.loglog(t["h"], t["central_error"], label="central")
-```
-
-**Exact values.** For root finders get `p_star` from `scipy.optimize.brentq` or `mpmath.findroot`; for
-integrals use `scipy.integrate.quad`.
-
-## Notes and limitations
-
-* Hermite and Lagrange interpolation at many equally spaced nodes is numerically unstable (Runge phenomenon). Use fewer nodes or a spline.
-* `natural_cubic_spline` needs increasing `x`.
-* `euler` handles one scalar equation, not systems.
-* The linear solvers use plain Python loops (`O(n^2)` per iteration) and a dense matrix.
-* `newton` raises `ZeroDivisionError` if `f'` is zero at an iterate; `secant` stops early if two consecutive function values are equal.
-* Developed and checked with Python 3.12, numpy 2 and pandas 3.
-
-## License
+# License
 
 MIT, see [LICENSE](LICENSE).
