@@ -1,7 +1,7 @@
 # numericalanalysisiiser
 
-Classical numerical analysis methods in plain Python, from the IISER Thiruvananthapuram numerical analysis labs (MAT 308 / MAT 314): interpolation, numerical differentiation and
-integration, root finding, iterative linear solvers and an ODE solver.
+Classical numerical analysis methods in plain Python, from the MAT 308 Mathematics Lab at IISER Thiruvananthapuram:
+interpolation, numerical differentiation and integration, root finding, iterative linear solvers and an ODE solver.
 
 **Every method returns a pandas DataFrame.** The table has one row per iteration, step size or
 evaluation point, so you can read the result, filter it, and plot any columns you like.

@@ -1,7 +1,6 @@
 # Numerical Analysis
 
-Course work and a Python library for **MAT 308: Mathematics Lab** and **MAT 314: Numerical Analysis**
-(School of Mathematics, IISER Thiruvananthapuram).
+Lab work and a Python library for **MAT 308: Mathematics Lab** (School of Mathematics, IISER Thiruvananthapuram).
 
 The lab scripts are in [`College/`](College). The methods from the labs were collected into a Python
 library, [`numericalanalysisiiser`](https://pypi.org/project/numericalanalysisiiser/), which is in
@@ -21,60 +20,17 @@ print(t["p"].iloc[-1])        # the root: last row of the table
 **Full documentation (every function, its parameters, the columns it returns, and examples with output):
 [pythonlibrary/README.md](pythonlibrary/README.md).**
 
+To check the lab solutions independently, see [CROSSCHECK.md](CROSSCHECK.md): install the library and run
+[`crosscheck.py`](crosscheck.py), which compares the results for Labs 1 to 7 with numpy / scipy references.
+
 ## Repository layout
 
 | Folder | Contents |
 |---|---|
 | [`College/Lab`](College/Lab) | the lab scripts, one folder per lab session |
 | [`College/Practice Problems`](College/Practice%20Problems) | the lab problem sheets (Lab 1 to Lab 7) with the solution scripts |
-| [`College/Notes`](College/Notes) | lecture / lab notes |
+| [`College/Notes`](College/Notes) | lab notes |
 | [`pythonlibrary`](pythonlibrary) | the installable Python package, its README, license and `pyproject.toml` |
-
-## Course syllabus
-
-### MAT 314: Numerical Analysis [3 0 0 3]
-
-This introductory numerics course makes students aware of the classical approximation schemes used to
-solve algebraic equations and differential equations. Prerequisites: none.
-
-| Topic | In the library |
-|---|---|
-| Round-off errors and computer arithmetic | not implemented (done in the lab scripts) |
-| Nonlinear equations: bisection, secant and Newton's method, fixed-point iteration | `bisection`, `secant`, `newton`, `fixed_point` |
-| Interpolation: Lagrange, divided differences, Hermite, splines | `lagrange`, `newton_interpolation`, `divided_differences`, `hermite`, `natural_cubic_spline` |
-| Numerical differentiation, Richardson extrapolation | `finite_difference`, `richardson`, `richardson_triangle` |
-| Numerical integration: trapezoidal, Simpson, Newton-Cotes, Gauss quadrature, Romberg | `trapezoid`, `simpson`, `gauss_legendre`, `romberg` (trapezoid and Simpson are the Newton-Cotes rules of degree 1 and 2) |
-| Linear systems, direct methods: Gauss elimination, pivoting, matrix factorisations | not implemented |
-| Linear systems, iterative methods: matrix norms, Jacobi and Gauss-Seidel, relaxation | `jacobi`, `gauss_seidel`, `sor` (matrix norms not implemented) |
-| Eigenvalues and eigenvectors: power method, QR algorithm | not implemented |
-| Initial value problems: Euler method, higher-order Runge-Kutta methods | `euler` (Runge-Kutta not implemented) |
-| Boundary value problems: finite differences | not implemented |
-
-Reference books: K. E. Atkinson, *An Introduction to Numerical Analysis*, 2nd ed.; R. L. Burden and
-J. D. Faires, *Numerical Analysis*, 7th ed.
-
-### MAT 308: Mathematics Lab [0 0 3 1]
-
-The aim is to familiarise students with the implementation of numerical analysis techniques, especially
-numerical integration and solving linear systems of equations, through a set of weekly lab assignments
-in Python / MATLAB. Prerequisites: none.
-
-| Lab | Topic | In the library |
-|---|---|---|
-| 1 | Introduction to Python / MATLAB | |
-| 2 | Computer arithmetic: machine epsilon; error of a forward difference against the step size `h` | `finite_difference` covers the second part |
-| 3 | Root finding: Newton's method and fixed-point iteration | `newton`, `fixed_point` (also `bisection`, `secant`) |
-| 4 | Interpolation: Lagrange polynomial of degree 10 for `1 / (1 + x^2)` on `[-5, 5]` | `lagrange` (also `newton_interpolation`, `hermite`, `natural_cubic_spline`) |
-| 5 | Numerical integration with the composite Simpson and trapezoidal rules (inside Newton's method) | `simpson`, `trapezoid` (also `romberg`, `gauss_legendre`) |
-| 6 | LU decomposition of given matrices | not implemented |
-| 7 | Gauss-Seidel and Jacobi methods for `Ax = b` | `gauss_seidel`, `jacobi` (also `sor`) |
-| 8 | Initial value problems: Runge-Kutta of order 2 and 4 | not implemented (`euler` only) |
-| 9 | Boundary value problems: nonlinear finite-difference method | not implemented |
-| 10 | Power method for the dominant eigenvalue | not implemented |
-
-Reference books: D. Mitsotakis, *An Introduction to Numerical Analysis and Scientific Computing with Python*,
-CRC Press, 2023; R. L. Burden and J. D. Faires, *Numerical Analysis*, 7th ed.; S. D. Conte and C. de Boor,
-*Elementary Numerical Analysis: An Algorithmic Approach*, 3rd ed.
 
 ## The Python library
 
@@ -85,7 +41,7 @@ convergence.
 
 ### Functions
 
-| Area | Functions | What they do |
+| Area | Function | What it does |
 |---|---|---|
 | Interpolation | `lagrange(x, y, alpha)` | Lagrange polynomial through the points |
 | | `newton_interpolation(x, y, alpha)` | Newton form of the interpolation polynomial |
@@ -114,13 +70,22 @@ See [pythonlibrary/README.md](pythonlibrary/README.md) for the arguments and ret
 function, worked examples with output, and recipes (comparing root finders, comparing relaxation
 parameters, stability tables for Euler).
 
-### Development
-
-```bash
-cd pythonlibrary
-pip install -e .
-```
-
 ## License
 
 The library is released under the MIT license, see [pythonlibrary/LICENSE](pythonlibrary/LICENSE).
+
+## Course content: MAT 308 Mathematics Lab [0 0 3 1]
+
+The aim of the course is to familiarise students with the implementation of numerical analysis techniques,
+especially numerical integration and solving linear systems of equations, through a set of weekly lab
+assignments in Python.
+
+| Lab | Topics | Library functions |
+|---|---|---|
+| 1 | Floating-point behaviour of `(e^x - 1) / x`; Lagrange and Newton interpolation | `lagrange`, `newton_interpolation`, `divided_differences` |
+| 2 | Hermite interpolation and natural cubic splines | `hermite`, `natural_cubic_spline` |
+| 3 | Numerical differentiation (forward, backward, central differences, Richardson extrapolation) and integration (trapezoidal, Simpson, composite rules, Romberg, Gauss-Legendre) | `finite_difference`, `richardson`, `trapezoid`, `simpson`, `romberg`, `gauss_legendre` |
+| 4 | Root finding: bisection, fixed-point iteration, Newton's method, secant method | `bisection`, `fixed_point`, `newton`, `secant` |
+| 5 | Jacobi and Gauss-Seidel methods | `jacobi`, `gauss_seidel` |
+| 6 | Successive over-relaxation (SOR) | `sor` |
+| 7 | Initial value problems: explicit Euler method, including a stiff problem | `euler` |
