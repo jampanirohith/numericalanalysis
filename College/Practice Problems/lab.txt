@@ -1,0 +1,13 @@
+Lab-1 : Lagrange & Newton interpolation
+
+Lab-2 : Hermite & Natural cubic spline
+
+Lab-3 : Forward, backward, and central difference & Richardson extrapolation & Trapezoidal rule and Simpson’s 1/3 rule & Composite Trapezoidal rule and Composite Simpson’s 1/3 rule & Romberg Integration & Gauss–Legendre Quadrature
+
+Lab-4 : Bisection Method & Fixed-Point Method & Newton’s Method & Secant Method 
+
+Lab-5 : Jacobi & Gauss–Seidel method
+
+Lab-6 : SOR
+
+Lab-7 : 
