@@ -3,7 +3,7 @@
     from numericalanalysis import bisection, richardson, jacobi, lagrange
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 from .lagrange import lagrange
 from .newton_interpolation import newton_interpolation, divided_differences

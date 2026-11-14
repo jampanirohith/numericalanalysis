@@ -1,6 +1,6 @@
 # numericalanalysisiiser
 
-Classical numerical analysis methods in plain Python: interpolation, numerical differentiation and
+Classical numerical analysis methods in plain Python, from the IISER Thiruvananthapuram numerical analysis labs (MAT 308 / MAT 314): interpolation, numerical differentiation and
 integration, root finding, iterative linear solvers and an ODE solver.
 
 **Every method returns a pandas DataFrame.** The table has one row per iteration, step size or
@@ -37,10 +37,19 @@ plt.semilogy(t["n"], t["error"])          # any columns can be plotted
 pip install numericalanalysisiiser
 ```
 
+Package on PyPI: <https://pypi.org/project/numericalanalysisiiser/>. Source code and the course material
+it comes from: <https://github.com/jampanirohith/numericalanalysis>.
+
 Requires Python 3.9 or newer, numpy and pandas (installed automatically). matplotlib is not
 required; install it only if you want to plot the tables.
 
-From a clone of the repository:
+To upgrade to the latest release:
+
+```bash
+pip install --upgrade numericalanalysisiiser
+```
+
+To work on the code from a clone of the repository:
 
 ```bash
 cd pythonlibrary

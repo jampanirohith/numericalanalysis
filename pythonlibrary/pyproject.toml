@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "numericalanalysisiiser"
-version = "0.1.0"
+version = "0.1.1"
 description = "Numerical analysis methods (interpolation, differentiation, integration, root finding, linear systems, ODEs) that return pandas DataFrames"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -26,6 +26,7 @@ dependencies = ["numpy", "pandas"]
 
 [project.urls]
 Homepage = "https://github.com/jampanirohith/numericalanalysis"
+Source = "https://github.com/jampanirohith/numericalanalysis/tree/main/pythonlibrary"
 Issues = "https://github.com/jampanirohith/numericalanalysis/issues"
 
 [tool.setuptools.packages.find]
